@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'rag-dataset'))
-CORS(app, origins=["https://tu-app.onrender.com", "http://localhost:5000"])
+CORS(app, origins=["https://rag-facturas.onrender.com", "http://localhost:5000"])
 # Funciones aquí:
 
 
@@ -444,36 +444,44 @@ with app.app_context():
 
 
 
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    try:  # Un solo bloque try que engloba toda la lógica
+    try:
+        # Verificar si se enviaron archivos
         if 'file' not in request.files:
-            return jsonify({"error": "No se encontró el archivo en la solicitud"}), 400
+            return jsonify({"error": "No se detectaron archivos en la solicitud"}), 400
 
         files = request.files.getlist('file')
         if not files:
-            return jsonify({"error": "Ningún archivo seleccionado"}), 400
+            return jsonify({"error": "La lista de archivos está vacía"}), 400
 
         uploaded_files = []
-        for file in files:  # Procesar cada archivo
+        for file in files:
             if file.filename == '':
                 continue
 
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            uploaded_files.append(filename)
+            # Validar y guardar
+            if allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                uploaded_files.append(filename)
+            else:
+                return jsonify({"error": f"Tipo de archivo no permitido: {file.filename}"}), 400
 
         return jsonify({
             "success": True,
-            "message": f"{len(uploaded_files)} archivos subidos exitosamente",
+            "message": f"Subidos {len(uploaded_files)} archivos",
             "files": uploaded_files
         })
 
     except Exception as e:
-        app.logger.error(f"Error en upload_file: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500
+        app.logger.error(f"ERROR en /upload: {str(e)}")
+        return jsonify({"error": "Fallo en el servidor. Contacta al administrador."}), 500
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in {'pdf'}  # Solo PDFs
 
 
 
