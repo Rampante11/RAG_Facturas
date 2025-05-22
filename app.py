@@ -20,13 +20,19 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'rag-dataset'))
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, origins=["https://tu-app.onrender.com", "http://localhost:5000"])
 # Funciones aquí:
 
-# Crear directorio uploads si no existe
+
+# Añade esto JUSTO DEBAJO de la configuración
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.chmod(app.config['UPLOAD_FOLDER'], 0o755)
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.chmod(app.config['UPLOAD_FOLDER'], 0o755)  # Permisos necesarios en Render
+        print(f"✅ Directorio creado: {app.config['UPLOAD_FOLDER']}")
+    except Exception as e:
+        print(f"❌ Error crítico al crear directorio: {str(e)}")
+        raise  # Detiene la app si no puede crear el directorio
 
 def procesamiento_pdf():
 
@@ -439,20 +445,25 @@ with app.app_context():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No se encontró el archivo en la solicitud"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        files = request.files.getlist('file')
+        if len(files) == 0:
+            return jsonify({"error": "Ningún archivo seleccionado"}), 400
 
     try:
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        return jsonify({"success": True, "filename": filename})
+        return jsonify({
+            "success": True,
+            "message": f"Archivo {filename} subido exitosamente",
+            "filename": filename})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"Error crítico: {str(e)}")  # Log en Render
+        return jsonify({"error": "Error interno del servidor"}), 500
 
 
 
