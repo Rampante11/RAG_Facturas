@@ -472,6 +472,8 @@ def crear_excel_route():
 
 
 if __name__ == '__main__':
+    # Configuración para producción
+    port = int(os.environ.get("PORT", 5000))  # Usa el puerto de Render
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False en producción
