@@ -28,11 +28,14 @@ CORS(app, origins=["https://tu-app.onrender.com", "http://localhost:5000"])
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     try:
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        os.chmod(app.config['UPLOAD_FOLDER'], 0o755)  # Permisos necesarios en Render
+        os.chmod(app.config['UPLOAD_FOLDER'], 0o755)
         print(f"✅ Directorio creado: {app.config['UPLOAD_FOLDER']}")
+    except PermissionError as e:
+        print(f"❌ Error de permisos: {str(e)}")
+        exit(1)
     except Exception as e:
-        print(f"❌ Error crítico al crear directorio: {str(e)}")
-        raise  # Detiene la app si no puede crear el directorio
+        print(f"❌ Error inesperado: {str(e)}")
+        exit(1)
 
 def procesamiento_pdf():
 
@@ -442,27 +445,34 @@ with app.app_context():
 
 
 
-
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    try:
+    try:  # Un solo bloque try que engloba toda la lógica
         if 'file' not in request.files:
             return jsonify({"error": "No se encontró el archivo en la solicitud"}), 400
 
         files = request.files.getlist('file')
-        if len(files) == 0:
+        if not files:
             return jsonify({"error": "Ningún archivo seleccionado"}), 400
 
-    try:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        uploaded_files = []
+        for file in files:  # Procesar cada archivo
+            if file.filename == '':
+                continue
+
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            uploaded_files.append(filename)
+
         return jsonify({
             "success": True,
-            "message": f"Archivo {filename} subido exitosamente",
-            "filename": filename})
+            "message": f"{len(uploaded_files)} archivos subidos exitosamente",
+            "files": uploaded_files
+        })
+
     except Exception as e:
-        app.logger.error(f"Error crítico: {str(e)}")  # Log en Render
+        app.logger.error(f"Error en upload_file: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
