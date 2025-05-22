@@ -171,8 +171,6 @@
             document.getElementById('embedding-count').textContent = embeddings;
             document.getElementById('invoice-count').textContent = invoices;
         }
-
-        // Función para subir archivos (adaptada a tu backend)
         async function uploadPDFs() {
             const input = document.getElementById('pdfUpload');
             const statusDiv = document.getElementById('upload-status');
@@ -184,8 +182,10 @@
             }
 
             const formData = new FormData();
+
+            // Cambiar 'pdfs' por 'file' para coincidir con el backend
             for (const file of input.files) {
-                formData.append('pdfs', file);
+                formData.append('file', file); // Cambio clave aquí
             }
 
             try {
@@ -200,17 +200,17 @@
                     updateStatus('upload-status', `✅ ${result.message}`);
                     progressBar.style.width = '100%';
                     setTimeout(() => progressBar.style.width = '0%', 2000);
-                    updateCounters(
-                        parseInt(document.getElementById('doc-count').textContent) + input.files.length,
-                        document.getElementById('chunk-count').textContent,
-                        document.getElementById('embedding-count').textContent,
-                        document.getElementById('invoice-count').textContent
-                    );
+
+                    // Actualización recomendada de contadores
+                    const newCount = parseInt(document.getElementById('doc-count').textContent) + input.files.length;
+                    document.getElementById('doc-count').textContent = newCount;
+
                 } else {
-                    updateStatus('upload-status', `❌ ${result.error}`, true);
+                    updateStatus('upload-status', `❌ Error del servidor: ${result.error}`, true);
                 }
             } catch (error) {
-                updateStatus('upload-status', '❌ Error de conexión', true);
+                updateStatus('upload-status', '❌ Error de conexión: Verifica tu red', true);
+                console.error('Error en uploadPDFs:', error);
             }
         }
 

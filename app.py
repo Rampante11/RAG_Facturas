@@ -14,13 +14,19 @@ from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from typing import Dict
+from flask_cors import CORS
+
 
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'rag-dataset'
-
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'rag-dataset'))
+CORS(app, resources={r"/*": {"origins": "*"}})
 # Funciones aquí:
 
+# Crear directorio uploads si no existe
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.chmod(app.config['UPLOAD_FOLDER'], 0o755)
 
 def procesamiento_pdf():
 
@@ -432,15 +438,21 @@ with app.app_context():
 
 
 @app.route('/upload', methods=['POST'])
-def upload_files():
-    if 'pdfs' not in request.files:
-        return jsonify({'error': 'No files uploaded'}), 400
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    files = request.files.getlist('pdfs')
-    for file in files:
-        if file.filename != '':
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
-    return jsonify({'message': f'{len(files)} archivos subidos correctamente'})
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    try:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 
