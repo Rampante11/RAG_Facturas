@@ -17,6 +17,8 @@ from typing import Dict
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from io import BytesIO
+import pdfplumber
+
 
 
 
@@ -161,7 +163,7 @@ def crear_excel():
     # Configuración
     DATA_DIR = "rag-dataset"
     LLM_MODEL = "meta-llama/llama-3-70b-instruct"
-    OPENROUTER_API_KEY = "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"
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
     # Cliente LLM
     llm_client = OpenAI(
@@ -299,7 +301,7 @@ def crear_excel():
 EMBEDDINGS_DIR = "embeddings_storage"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 LLM_MODEL = "deepseek/deepseek-r1:free"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Componentes RAG globales
 rag_components = {
