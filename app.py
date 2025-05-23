@@ -18,6 +18,8 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from io import BytesIO
 import pdfplumber
+import json
+
 
 
 
