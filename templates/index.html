@@ -270,18 +270,36 @@
             input.value = '';
         }
 
-        // Función para generar Excel
+        // Función para generar y descargar Excel
         async function crearExcel() {
             try {
                 const response = await fetch('/crear_excel', { method: 'POST' });
-                const result = await response.json();
 
-                if (response.ok) {
-                    updateStatus('process-status', '✅ Excel generado: ' + result.message);
-                } else {
-                    updateStatus('process-status', `❌ ${result.error}`, true);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    updateStatus('process-status', `❌ Error al generar Excel: ${errorText}`, true);
+                    return;
                 }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                // Nombre de archivo sugerido por el servidor o uno por defecto
+                const contentDisposition = response.headers.get('Content-Disposition');
+                const match = contentDisposition && contentDisposition.match(/filename="?([^"]+)"?/);
+                const filename = match ? match[1] : 'Reporte_Facturas_RAG.xlsx';
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                updateStatus('process-status', `✅ Excel generado: ${filename}`);
             } catch (error) {
+                console.error(error);
                 updateStatus('process-status', '❌ Error de conexión', true);
             }
         }
