@@ -156,22 +156,20 @@ def procesamiento_pdf():
     process_pdfs()
     generate_embeddings()
 
+
 def crear_excel():
-
-    #Configuración (usa tu configuración RAG existente)
+    # Configuración
     DATA_DIR = "rag-dataset"
-    EMBEDDINGS_DIR = "embeddings_storage"
     LLM_MODEL = "meta-llama/llama-3-70b-instruct"
-    OPENROUTER_API_KEY = "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"
+    OPENROUTER_API_KEY = "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"
 
-    # Configurar cliente LLM
+    # Cliente LLM
     llm_client = OpenAI(
         api_key=OPENROUTER_API_KEY,
         base_url="https://openrouter.ai/api/v1"
     )
 
-
-    # Plantilla para extracción estructurada
+    # Template para extracción
     EXTRACTION_TEMPLATE = """Analiza el siguiente texto de factura y extrae los siguientes campos en formato JSON:
     - numero_factura (combina punto de venta y número de comprobante si es necesario)
     - cae (código de autorización electrónica)
@@ -191,133 +189,14 @@ def crear_excel():
     "cae": "75206077555680",
     "vencimiento_cae": "23/05/2025",
     "cuit_emisor": "30-71097330-6",
-    "total": $ 6518093.93,
+    "total": 6518093.93,
     "fecha_emision": "13/05/2025",
-    "razon_social": "TERMAIR SRL"
+    "razon_social": "TERMAIR SRL",
     "Concepto_facturado": "Abril 2025"
     }}"""
 
-    def extract_invoice_data_with_rag(text: str) -> Dict:
-        """Extrae datos estructurados de una factura usando RAG"""
-        try:
-            prompt = EXTRACTION_TEMPLATE.format(text=text[:10000])  # Limitar tamaño para el LLM
-
-            response = llm_client.chat.completions.create(
-                model=LLM_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
-                temperature=0.1  # Baja temperatura para mayor consistencia
-            )
-
-            # Extraer el JSON de la respuesta
-            json_str = response.choices[0].message.content.strip()
-            json_str = json_str[json_str.find('{'):json_str.rfind('}')+1]
-
-            import json
-            return json.loads(json_str)
-
-        except Exception as e:
-            print(f"Error en extracción RAG: {str(e)}")
-            return {}
-
-    def process_pdfs_to_excel_with_rag():
-        """Procesa PDFs usando RAG para extracción de datos"""
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Facturas"
-
-        # Encabezados
-        headers = [
-            "Archivo PDF",
-            "Número Factura",
-            "CAE",
-            "Vencimiento CAE",
-            "CUIT Emisor",
-            "Total ($)",
-            "Razón Social",
-            "Fecha Emisión",
-            "Días al Vencimiento",
-            "Concepto Facturado"
-        ]
-        ws.append(headers)
-
-        # Formato de encabezados
-        for col in ws[1]:
-            col.font = Font(bold=True)
-            col.alignment = Alignment(horizontal='center')
-
-        total_procesadas = 0
-
-        for filename in os.listdir(DATA_DIR):
-            if filename.lower().endswith('.pdf'):
-                filepath = os.path.join(DATA_DIR, filename)
-                try:
-                    print(f"\nProcesando: {filename}")
-
-                    # Extraer texto (usando pdfplumber como en tu ejemplo anterior)
-                    text = extract_text_from_pdf(filepath)
-                    if not text:
-                        print(f"⚠️ No se pudo extraer texto de {filename}")
-                        continue
-
-                    # Extraer datos con RAG
-                    invoice_data = extract_invoice_data_with_rag(text)
-                    if not invoice_data:
-                        print(f"⚠️ No se extrajeron datos de {filename}")
-                        continue
-
-                    # Calcular días al vencimiento
-                    dias_restantes = "N/D"
-                    if 'vencimiento_cae' in invoice_data:
-                        try:
-                            vencimiento = datetime.strptime(invoice_data['vencimiento_cae'], "%d/%m/%Y")
-                            dias_restantes = max(0, (vencimiento - datetime.now()).days)
-                        except:
-                            pass
-
-                    # Agregar fila al Excel
-                    ws.append([
-                        filename,
-                        invoice_data.get('numero_factura', 'N/D'),
-                        invoice_data.get('cae', 'N/D'),
-                        invoice_data.get('vencimiento_cae', 'N/D'),
-                        invoice_data.get('cuit_emisor', 'N/D'),
-                        invoice_data.get('total', 0),
-                        invoice_data.get('razon_social', 'N/D'),
-                        invoice_data.get('fecha_emision', 'N/D'),
-                        dias_restantes,
-                        invoice_data.get('Concepto_facturado', 'N/D')
-                    ])
-                    total_procesadas += 1
-                    print(f"✅ Datos extraídos: {invoice_data}")
-
-                except Exception as e:
-                    print(f"❌ Error procesando {filename}: {str(e)}")
-                    continue
-
-        # Ajustar columnas
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column_letter].width = adjusted_width
-
-        # Guardar archivo
-        output_file = "Reporte_Facturas_RAG.xlsx"
-        wb.save(output_file)
-        print(f"\n🎉 Reporte generado: {output_file}")
-        print(f"Total facturas procesadas: {total_procesadas}")
-
-    # Función auxiliar para extraer texto de PDF (usando pdfplumber como en tu ejemplo)
+    # Función para extracción de texto
     def extract_text_from_pdf(pdf_path):
-        """Extrae texto de un PDF usando pdfplumber"""
-        import pdfplumber
         text = ""
         try:
             with pdfplumber.open(pdf_path) as pdf:
@@ -327,10 +206,91 @@ def crear_excel():
             print(f"Error al leer PDF {pdf_path}: {str(e)}")
         return text
 
-    process_pdfs_to_excel_with_rag()
+    # Función para extraer datos con LLM
+    def extract_invoice_data_with_rag(text: str) -> Dict:
+        try:
+            prompt = EXTRACTION_TEMPLATE.format(text=text[:10000])
+            response = llm_client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.1
+            )
+            json_str = response.choices[0].message.content.strip()
+            json_str = json_str[json_str.find('{'):json_str.rfind('}')+1]
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"Error en extracción RAG: {str(e)}")
+            return {}
 
+    # Procesar PDFs y generar Workbook
     wb = Workbook()
+    ws = wb.active
+    ws.title = "Facturas"
 
+    headers = [
+        "Archivo PDF", "Número Factura", "CAE", "Vencimiento CAE",
+        "CUIT Emisor", "Total ($)", "Razón Social", "Fecha Emisión",
+        "Días al Vencimiento", "Concepto Facturado"
+    ]
+    ws.append(headers)
+
+    for col in ws[1]:
+        col.font = Font(bold=True)
+        col.alignment = Alignment(horizontal='center')
+
+    total_procesadas = 0
+
+    for filename in os.listdir(DATA_DIR):
+        if filename.lower().endswith('.pdf'):
+            filepath = os.path.join(DATA_DIR, filename)
+            print(f"\nProcesando: {filename}")
+            text = extract_text_from_pdf(filepath)
+            if not text:
+                print(f"⚠️ No se pudo extraer texto de {filename}")
+                continue
+
+            invoice_data = extract_invoice_data_with_rag(text)
+            if not invoice_data:
+                print(f"⚠️ No se extrajeron datos de {filename}")
+                continue
+
+            dias_restantes = "N/D"
+            if 'vencimiento_cae' in invoice_data:
+                try:
+                    vencimiento = datetime.strptime(invoice_data['vencimiento_cae'], "%d/%m/%Y")
+                    dias_restantes = max(0, (vencimiento - datetime.now()).days)
+                except:
+                    pass
+
+            ws.append([
+                filename,
+                invoice_data.get('numero_factura', 'N/D'),
+                invoice_data.get('cae', 'N/D'),
+                invoice_data.get('vencimiento_cae', 'N/D'),
+                invoice_data.get('cuit_emisor', 'N/D'),
+                invoice_data.get('total', 0),
+                invoice_data.get('razon_social', 'N/D'),
+                invoice_data.get('fecha_emision', 'N/D'),
+                dias_restantes,
+                invoice_data.get('Concepto_facturado', 'N/D')
+            ])
+            total_procesadas += 1
+            print(f"✅ Datos extraídos: {invoice_data}")
+
+    # Ajustar anchos de columnas
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        ws.column_dimensions[column_letter].width = max_length + 2
+
+    print(f"\n🎉 Total facturas procesadas: {total_procesadas}")
     return wb
 
 
