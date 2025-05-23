@@ -23,8 +23,7 @@ from io import BytesIO
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'rag-dataset'))
 CORS(app, origins=[
-    "https://tu-app-frontend.onrender.com",  # Si tienes frontend separado
-    "https://tu-app.onrender.com",           # Si está todo en el mismo proyecto
+    "https://rag-facturas.onrender.com",           # Si está todo en el mismo proyecto
     "http://localhost:5000"
 ])# Funciones aquí:
 
@@ -163,13 +162,14 @@ def crear_excel():
     DATA_DIR = "rag-dataset"
     EMBEDDINGS_DIR = "embeddings_storage"
     LLM_MODEL = "meta-llama/llama-3-70b-instruct"
-    OPENROUTER_API_KEY = "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"
+    OPENROUTER_API_KEY = "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"
 
     # Configurar cliente LLM
     llm_client = OpenAI(
         api_key=OPENROUTER_API_KEY,
         base_url="https://openrouter.ai/api/v1"
     )
+
 
     # Plantilla para extracción estructurada
     EXTRACTION_TEMPLATE = """Analiza el siguiente texto de factura y extrae los siguientes campos en formato JSON:
@@ -339,7 +339,7 @@ def crear_excel():
 EMBEDDINGS_DIR = "embeddings_storage"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 LLM_MODEL = "deepseek/deepseek-r1:free"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 
 # Componentes RAG globales
 rag_components = {
