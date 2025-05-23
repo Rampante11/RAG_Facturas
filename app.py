@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import os
 import re
 import pickle
@@ -16,12 +16,17 @@ from openpyxl.styles import Font, Alignment
 from typing import Dict
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from io import BytesIO
+
 
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'rag-dataset'))
-CORS(app, origins=["https://rag-facturas.onrender.com", "http://localhost:5000"])
-# Funciones aquí:
+CORS(app, origins=[
+    "https://tu-app-frontend.onrender.com",  # Si tienes frontend separado
+    "https://tu-app.onrender.com",           # Si está todo en el mismo proyecto
+    "http://localhost:5000"
+])# Funciones aquí:
 
 
 # Añade esto JUSTO DEBAJO de la configuración
@@ -324,6 +329,10 @@ def crear_excel():
 
     process_pdfs_to_excel_with_rag()
 
+    wb = Workbook()
+
+    return wb
+
 
 
 # Configuración RAG (ajusta paths según tu estructura real)
@@ -341,6 +350,8 @@ rag_components = {
 }
 
 def initialize_rag_system():
+    global rag_chain
+
     """Carga todos los componentes necesarios para el RAG"""
     try:
         # Cargar modelo de embeddings
@@ -491,6 +502,8 @@ def allowed_file(filename):
 def procesar_pdf_route():
     try:
         procesamiento_pdf()
+        global rag_chain  # Asegúrate de declararlo como global si no lo está
+        initialize_rag_system()
         return jsonify({'message': 'Procesamiento PDF completado'})
     except Exception as e:
         import traceback
@@ -504,11 +517,23 @@ def procesar_pdf_route():
 @app.route('/crear_excel', methods=['POST'])
 def crear_excel_route():
     try:
-        crear_excel()
-        return jsonify({'message': 'Archivo Excel creado correctamente'})
+        # Generamos el Workbook en memoria
+        output = BytesIO()
+        wb = crear_excel()  # Modifica crear_excel() para que devuelva el objeto Workbook
+        wb.save(output)
+        output.seek(0)
+
+        # Enviamos el fichero
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"Reporte_Facturas_RAG_{timestamp}.xlsx"
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 
 
